@@ -131,11 +131,31 @@ impl<CTX: ContextTr> PrecompileProvider<CTX> for EthPrecompiles {
             Err(e) => {
                 result.result = if e.is_oog() {
                     InstructionResult::PrecompileOOG
+                } else if let PrecompileError::Other(msg) = &e {
+                    if msg.starts_with("Reverted(") {
+                        // Extract gas value from "Reverted({gas})" format
+                        if let Some(gas_str) = msg.strip_prefix("Reverted(").and_then(|s| s.strip_suffix(")")) {
+                            if let Ok(gas_used) = gas_str.parse::<u64>() {
+                                if result.gas.record_cost(gas_used) {
+                                    InstructionResult::Revert
+                                } else {
+                                    InstructionResult::PrecompileOOG
+                                }
+                            } else {
+                                panic!("Failed to parse gas value from revert error message");
+                            }
+                        } else {
+                            panic!("Failed to parse gas value from revert error message");
+                        }
+                    } else {
+                        InstructionResult::PrecompileError
+                    }
                 } else {
                     InstructionResult::PrecompileError
                 };
             }
         }
+        println!("precompile address: {:?}, result: {:?}", address, result);
         Ok(Some(result))
     }
 
