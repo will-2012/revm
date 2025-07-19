@@ -194,7 +194,7 @@ impl EthFrame<EthInterpreter> {
         let is_static = inputs.is_static;
         let gas_limit = inputs.gas_limit;
 
-        println!("revm prepare precompile call: {:?}", inputs.bytecode_address);
+        println!("revm prepare precompile before call: {:?}", inputs.bytecode_address);
         if let Some(result) = precompiles
             .run(
                 ctx,
@@ -215,6 +215,8 @@ impl EthFrame<EthInterpreter> {
                 memory_offset: inputs.return_memory_offset.clone(),
             })));
         }
+        println!("revm prepare precompile after call: {:?}", inputs.bytecode_address);
+
 
         let account = ctx
             .journal_mut()
