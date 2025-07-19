@@ -98,10 +98,17 @@ impl<CTX: ContextTr> PrecompileProvider<CTX> for EthPrecompiles {
         _is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<InterpreterResult>, String> {
-        println!("revm run precompile call in provider2: {:?}", address);
+        eprintln!("=== PRECOMPILE RUN METHOD CALLED ===");
+        eprintln!("revm run precompile call in provider2: {:?}", address);
+        eprintln!("revm precompile gas_limit: {:?}", gas_limit);
+        eprintln!("revm precompile is_static: {:?}", _is_static);
+        
         let Some(precompile) = self.precompiles.get(address) else {
+            eprintln!("revm precompile not found for address: {:?}", address);
             return Ok(None);
         };
+        eprintln!("revm precompile found for address: {:?}", address);
+        
         let mut result = InterpreterResult {
             result: InstructionResult::Return,
             gas: Gas::new(gas_limit),
@@ -111,32 +118,47 @@ impl<CTX: ContextTr> PrecompileProvider<CTX> for EthPrecompiles {
         let r;
         let input_bytes = match &inputs.input {
             CallInput::SharedBuffer(range) => {
+                eprintln!("revm precompile using shared buffer range: {:?}", range);
                 if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
                     r = slice;
                     r.as_ref()
                 } else {
+                    eprintln!("revm precompile shared buffer slice not found");
                     &[]
                 }
             }
-            CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
+            CallInput::Bytes(bytes) => {
+                eprintln!("revm precompile using bytes input, length: {:?}", bytes.0.len());
+                bytes.0.iter().as_slice()
+            }
         };
+        eprintln!("revm precompile input bytes length: {:?}", input_bytes.len());
 
+        eprintln!("revm precompile calling function with address: {:?}", address);
         match (*precompile)(input_bytes, gas_limit) {
             Ok(output) => {
+                eprintln!("revm precompile success, gas_used: {:?}, output_length: {:?}", output.gas_used, output.bytes.len());
                 let underflow = result.gas.record_cost(output.gas_used);
                 assert!(underflow, "Gas underflow is not possible");
                 result.result = InstructionResult::Return;
                 result.output = output.bytes;
             }
-            Err(PrecompileError::Fatal(e)) => return Err(e),
+            Err(PrecompileError::Fatal(e)) => {
+                eprintln!("revm precompile fatal error: {:?}", e);
+                return Err(e);
+            }
             Err(e) => {
+                eprintln!("revm precompile error: {:?}", e);
                 result.result = if e.is_oog() {
+                    eprintln!("revm precompile out of gas error");
                     InstructionResult::PrecompileOOG
                 } else if let PrecompileError::Other(msg) = &e {
                     if msg.starts_with("Reverted(") {
+                        eprintln!("revm precompile revert error: {:?}", msg);
                         // Extract gas value from "Reverted({gas})" format
                         if let Some(gas_str) = msg.strip_prefix("Reverted(").and_then(|s| s.strip_suffix(")")) {
                             if let Ok(gas_used) = gas_str.parse::<u64>() {
+                                eprintln!("revm precompile revert gas_used: {:?}", gas_used);
                                 if result.gas.record_cost(gas_used) {
                                     InstructionResult::Revert
                                 } else {
@@ -149,14 +171,17 @@ impl<CTX: ContextTr> PrecompileProvider<CTX> for EthPrecompiles {
                             panic!("Failed to parse gas value from revert error message");
                         }
                     } else {
+                        eprintln!("revm precompile other error: {:?}", msg);
                         InstructionResult::PrecompileError
                     }
                 } else {
+                    eprintln!("revm precompile unknown error type");
                     InstructionResult::PrecompileError
                 };
             }
         }
-        println!("precompile address: {:?}, result: {:?}", address, result);
+        eprintln!("precompile address: {:?}, result: {:?}", address, result);
+        eprintln!("=== PRECOMPILE RUN METHOD END ===");
         Ok(Some(result))
     }
 

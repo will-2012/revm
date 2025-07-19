@@ -145,6 +145,11 @@ impl EthFrame<EthInterpreter> {
         memory: SharedMemory,
         inputs: Box<CallInputs>,
     ) -> Result<ItemOrResult<FrameToken, FrameResult>, ERROR> {
+        eprintln!("=== MAKE_CALL_FRAME CALLED ===");
+        eprintln!("revm make_call_frame: {:?}", inputs.bytecode_address);
+        eprintln!("revm make_call_frame depth: {:?}", depth);
+        eprintln!("revm make_call_frame target_address: {:?}", inputs.target_address);
+        eprintln!("revm make_call_frame caller: {:?}", inputs.caller);
         println!("revm make_call_frame: {:?}", inputs.bytecode_address);
         let gas = Gas::new(inputs.gas_limit);
         let return_result = |instruction_result: InstructionResult| {
@@ -195,6 +200,11 @@ impl EthFrame<EthInterpreter> {
         let gas_limit = inputs.gas_limit;
 
         println!("revm prepare precompile before call: {:?}", inputs.bytecode_address);
+        eprintln!("=== FRAME.RS: ABOUT TO CALL PRECOMPILES.RUN ===");
+        eprintln!("revm frame.rs precompiles.run address: {:?}", inputs.bytecode_address);
+        eprintln!("revm frame.rs precompiles.run gas_limit: {:?}", gas_limit);
+        eprintln!("revm frame.rs precompiles.run is_static: {:?}", is_static);
+        
         if let Some(result) = precompiles
             .run(
                 ctx,
@@ -205,6 +215,7 @@ impl EthFrame<EthInterpreter> {
             )
             .map_err(ERROR::from_string)?
         {
+            eprintln!("revm frame.rs precompiles.run returned Some(result)");
             if result.result.is_ok() {
                 ctx.journal_mut().checkpoint_commit();
             } else {
@@ -215,6 +226,7 @@ impl EthFrame<EthInterpreter> {
                 memory_offset: inputs.return_memory_offset.clone(),
             })));
         }
+        eprintln!("revm frame.rs precompiles.run returned None");
         println!("revm prepare precompile after call: {:?}", inputs.bytecode_address);
 
 
