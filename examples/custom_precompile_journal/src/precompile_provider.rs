@@ -57,6 +57,7 @@ where
         is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
+        println!("revm run precompile call2: {:?}", address);
         // Check if this is our custom precompile
         if *address == CUSTOM_PRECOMPILE_ADDRESS {
             return Ok(Some(run_custom_precompile(

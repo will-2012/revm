@@ -145,6 +145,7 @@ impl EthFrame<EthInterpreter> {
         memory: SharedMemory,
         inputs: Box<CallInputs>,
     ) -> Result<ItemOrResult<FrameToken, FrameResult>, ERROR> {
+        println!("revm make_call_frame: {:?}", inputs.bytecode_address);
         let gas = Gas::new(inputs.gas_limit);
         let return_result = |instruction_result: InstructionResult| {
             Ok(ItemOrResult::Result(FrameResult::Call(CallOutcome {
@@ -193,6 +194,7 @@ impl EthFrame<EthInterpreter> {
         let is_static = inputs.is_static;
         let gas_limit = inputs.gas_limit;
 
+        println!("revm prepare precompile call: {:?}", inputs.bytecode_address);
         if let Some(result) = precompiles
             .run(
                 ctx,
