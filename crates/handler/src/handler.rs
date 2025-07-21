@@ -12,6 +12,7 @@ use context_interface::{
 };
 use interpreter::interpreter_action::FrameInit;
 use interpreter::{Gas, InitialAndFloorGas, SharedMemory};
+use primitives::hex::ToHexExt;
 use primitives::U256;
 use state::EvmState;
 
@@ -191,6 +192,10 @@ pub trait Handler {
         evm: &mut Self::Evm,
         init_and_floor_gas: &InitialAndFloorGas,
     ) -> Result<FrameResult, Self::Error> {
+        eprintln!("=== Try debug execution ===, tx_caller={:?}", evm.ctx().tx().caller());
+        if evm.ctx().tx().input().encode_hex() == "0x48461b56000000000000000000000000447bd361f306c38938ab2c17c8d3949a1caab99b0000000000000000000000000000000000000000000000000000000000003019"{
+            eprintln!("=== Try debug execution, equal!!!! ===");
+        }
         let gas_limit = evm.ctx().tx().gas_limit() - init_and_floor_gas.initial_gas;
         // Create first frame action
         let first_frame_input = self.first_frame_input(evm, gas_limit)?;
