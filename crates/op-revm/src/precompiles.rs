@@ -117,6 +117,7 @@ where
         is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
+        println!("revm run precompile call in op-revm: {:?}", address);
         self.inner
             .run(context, address, inputs, is_static, gas_limit)
     }

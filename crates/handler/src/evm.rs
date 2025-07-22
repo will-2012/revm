@@ -114,21 +114,30 @@ where
         &mut self,
         frame_input: <Self::Frame as FrameTr>::FrameInit,
     ) -> Result<FrameInitResult<'_, Self::Frame>, ContextDbError<CTX>> {
+        eprintln!("=== FRAME_INIT CALLED ===");
+        eprintln!("revm frame_init depth: {:?}", frame_input.depth);
+        eprintln!("revm frame_init frame_input type: {:?}", std::any::type_name::<FrameInit>());
+        
         let is_first_init = self.frame_stack.index().is_none();
         let new_frame = if is_first_init {
+            eprintln!("revm frame_init: first init, starting frame stack");
             self.frame_stack.start_init()
         } else {
+            eprintln!("revm frame_init: getting next frame from stack");
             self.frame_stack.get_next()
         };
 
         let ctx = &mut self.ctx;
         let precompiles = &mut self.precompiles;
+        eprintln!("revm frame_init: calling init_with_context");
         let res = Self::Frame::init_with_context(new_frame, ctx, precompiles, frame_input)?;
 
         Ok(res.map_frame(|token| {
             if is_first_init {
+                eprintln!("revm frame_init: ending first init");
                 self.frame_stack.end_init(token);
             } else {
+                eprintln!("revm frame_init: pushing frame to stack");
                 self.frame_stack.push(token);
             }
             self.frame_stack.get()

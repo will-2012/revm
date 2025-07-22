@@ -145,6 +145,15 @@ impl EthFrame<EthInterpreter> {
         memory: SharedMemory,
         inputs: Box<CallInputs>,
     ) -> Result<ItemOrResult<FrameToken, FrameResult>, ERROR> {
+        eprintln!("=== MAKE_CALL_FRAME CALLED ===");
+        eprintln!("revm make_call_frame: {:?}", inputs.bytecode_address);
+        eprintln!("revm make_call_frame depth: {:?}", depth);
+        eprintln!("revm make_call_frame target_address: {:?}", inputs.target_address);
+        eprintln!("revm make_call_frame caller: {:?}", inputs.caller);
+        eprintln!("revm make_call_frame gas_limit: {:?}", inputs.gas_limit);
+        eprintln!("revm make_call_frame is_static: {:?}", inputs.is_static);
+        eprintln!("revm make_call_frame input length: {:?}", inputs.input.len());
+        println!("revm make_call_frame: {:?}", inputs.bytecode_address);
         let gas = Gas::new(inputs.gas_limit);
         let return_result = |instruction_result: InstructionResult| {
             Ok(ItemOrResult::Result(FrameResult::Call(CallOutcome {
@@ -159,6 +168,7 @@ impl EthFrame<EthInterpreter> {
 
         // Check depth
         if depth > CALL_STACK_LIMIT as usize {
+            eprintln!("revm make_call_frame: call too deep");
             return return_result(InstructionResult::CallTooDeep);
         }
 
@@ -178,6 +188,7 @@ impl EthFrame<EthInterpreter> {
                 ctx.journal_mut()
                     .transfer(inputs.caller, inputs.target_address, value)?
             {
+                eprintln!("revm make_call_frame: transfer failed");
                 ctx.journal_mut().checkpoint_revert(checkpoint);
                 return return_result(i.into());
             }
@@ -193,6 +204,13 @@ impl EthFrame<EthInterpreter> {
         let is_static = inputs.is_static;
         let gas_limit = inputs.gas_limit;
 
+        println!("revm prepare precompile before call: {:?}", inputs.bytecode_address);
+        eprintln!("=== FRAME.RS: ABOUT TO CALL PRECOMPILES.RUN ===");
+        eprintln!("revm frame.rs precompiles.run address: {:?}", inputs.bytecode_address);
+        eprintln!("revm frame.rs precompiles.run gas_limit: {:?}", gas_limit);
+        eprintln!("revm frame.rs precompiles.run is_static: {:?}", is_static);
+        eprintln!("revm frame.rs precompiles type: {:?}", std::any::type_name::<PRECOMPILES>());
+        
         if let Some(result) = precompiles
             .run(
                 ctx,
@@ -203,6 +221,8 @@ impl EthFrame<EthInterpreter> {
             )
             .map_err(ERROR::from_string)?
         {
+            eprintln!("revm frame.rs precompiles.run returned Some(result)");
+            eprintln!("revm frame.rs precompile result: {:?}", result);
             if result.result.is_ok() {
                 ctx.journal_mut().checkpoint_commit();
             } else {
@@ -213,6 +233,9 @@ impl EthFrame<EthInterpreter> {
                 memory_offset: inputs.return_memory_offset.clone(),
             })));
         }
+        eprintln!("revm frame.rs precompiles.run returned None");
+        println!("revm prepare precompile after call: {:?}", inputs.bytecode_address);
+
 
         let account = ctx
             .journal_mut()
@@ -494,6 +517,10 @@ impl EthFrame<EthInterpreter> {
         ItemOrResult<FrameToken, FrameResult>,
         ContextError<<<CTX as ContextTr>::Db as Database>::Error>,
     > {
+        eprintln!("=== INIT_WITH_CONTEXT CALLED ===");
+        eprintln!("revm init_with_context depth: {:?}", frame_init.depth);
+        eprintln!("revm init_with_context frame_input type: {:?}", std::any::type_name::<FrameInput>());
+        
         // TODO cleanup inner make functions
         let FrameInit {
             depth,
@@ -503,9 +530,15 @@ impl EthFrame<EthInterpreter> {
 
         match frame_input {
             FrameInput::Call(inputs) => {
+                eprintln!("revm init_with_context: creating CALL frame");
+                eprintln!("revm init_with_context call target: {:?}", inputs.target_address);
+                eprintln!("revm init_with_context call bytecode_address: {:?}", inputs.bytecode_address);
                 Self::make_call_frame(this, ctx, precompiles, depth, memory, inputs)
             }
-            FrameInput::Create(inputs) => Self::make_create_frame(this, ctx, depth, memory, inputs),
+            FrameInput::Create(inputs) => {
+                eprintln!("revm init_with_context: creating CREATE frame");
+                Self::make_create_frame(this, ctx, depth, memory, inputs)
+            }
             FrameInput::Empty => unreachable!(),
         }
     }
