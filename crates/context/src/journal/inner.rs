@@ -547,6 +547,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 
         // EIP-6780 (Cancun hard-fork): selfdestruct only if contract is created in the same tx
         let journal_entry = if acc.is_created_locally() || !is_cancun_enabled {
+            eprintln!("=== EVM selfdestruct called1, address: {:?}, target: {:?}, balance: {:?}, is_created_locally: {:?}, is_cancun_enabled: {:?}, spec: {:?} ===", address, target, balance, acc.is_created_locally(), is_cancun_enabled, spec);
             acc.mark_selfdestructed_locally();
             acc.info.balance = U256::ZERO;
             Some(ENTRY::account_destroyed(
@@ -556,9 +557,11 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 balance,
             ))
         } else if address != target {
+            eprintln!("=== EVM selfdestruct called2, address: {:?}, target: {:?}, balance: {:?}, is_created_locally: {:?}, is_cancun_enabled: {:?}, spec: {:?} ===", address, target, balance, acc.is_created_locally(), is_cancun_enabled, spec);
             acc.info.balance = U256::ZERO;
             Some(ENTRY::balance_transfer(address, target, balance))
         } else {
+            eprintln!("=== EVM selfdestruct called3, address: {:?}, target: {:?}, balance: {:?}, is_created_locally: {:?}, is_cancun_enabled: {:?}, spec: {:?} ===", address, target, balance, acc.is_created_locally(), is_cancun_enabled, spec);
             // State is not changed:
             // * if we are after Cancun upgrade and
             // * Selfdestruct account that is created in the same transaction and
