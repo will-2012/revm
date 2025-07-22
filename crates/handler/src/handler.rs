@@ -146,8 +146,21 @@ pub trait Handler {
         &mut self,
         evm: &mut Self::Evm,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        // todo: add debug flag to enable/disable debug execution
+        eprintln!("=== Try debug execution2222, address={:?}", evm.ctx().tx().caller());
+        if evm.ctx().tx().input().encode_hex() == "0x48461b56000000000000000000000000447bd361f306c38938ab2c17c8d3949a1caab99b0000000000000000000000000000000000000000000000000000000000003019"{
+            eprintln!("=== Try debug execution, equal2222!!!! ===");
+        }
         let init_and_floor_gas = self.validate(evm)?;
+        eprintln!("=== Try debug execution3333, address={:?}", evm.ctx().tx().caller());
+        if evm.ctx().tx().input().encode_hex() == "0x48461b56000000000000000000000000447bd361f306c38938ab2c17c8d3949a1caab99b0000000000000000000000000000000000000000000000000000000000003019"{
+            eprintln!("=== Try debug execution, equal3333!!!! ===");
+        }
         let eip7702_refund = self.pre_execution(evm)? as i64;
+        eprintln!("=== Try debug execution4444, address={:?}", evm.ctx().tx().caller());
+        if evm.ctx().tx().input().encode_hex() == "0x48461b56000000000000000000000000447bd361f306c38938ab2c17c8d3949a1caab99b0000000000000000000000000000000000000000000000000000000000003019"{
+            eprintln!("=== Try debug execution, equal4444!!!! ===");
+        }
         let mut exec_result = self.execution(evm, &init_and_floor_gas)?;
         self.post_execution(evm, &mut exec_result, init_and_floor_gas, eip7702_refund)?;
 
