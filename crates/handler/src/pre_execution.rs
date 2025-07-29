@@ -190,30 +190,41 @@ pub fn apply_eip7702_auth_list<
     let tx = context.tx();
     // Return if there is no auth list.
     if tx.tx_type() != TransactionType::Eip7702 {
+        eprintln!("EIP-7702: Not an EIP-7702 transaction, skipping");
         return Ok(0);
     }
 
+    eprintln!("EIP-7702: Processing authorization list...");
     let chain_id = context.cfg().chain_id();
     let (tx, journal) = context.tx_journal_mut();
 
     let mut refunded_accounts = 0;
+    let mut processed_auths = 0;
     for authorization in tx.authorization_list() {
+        processed_auths += 1;
+        eprintln!("EIP-7702: Processing authorization #{}", processed_auths);
+        
         // 1. Verify the chain id is either 0 or the chain's current ID.
         let auth_chain_id = authorization.chain_id();
         if !auth_chain_id.is_zero() && auth_chain_id != U256::from(chain_id) {
+            eprintln!("EIP-7702: Chain ID mismatch, skipping auth #{}", processed_auths);
             continue;
         }
 
         // 2. Verify the `nonce` is less than `2**64 - 1`.
         if authorization.nonce() == u64::MAX {
+            eprintln!("EIP-7702: Nonce is MAX, skipping auth #{}", processed_auths);
             continue;
         }
 
         // recover authority and authorized addresses.
         // 3. `authority = ecrecover(keccak(MAGIC || rlp([chain_id, address, nonce])), y_parity, r, s]`
         let Some(authority) = authorization.authority() else {
+            eprintln!("EIP-7702: Failed to recover authority, skipping auth #{}", processed_auths);
             continue;
         };
+
+        eprintln!("EIP-7702: Authority = {:?}, Nonce = {}", authority, authorization.nonce());
 
         // warm authority account and check nonce.
         // 4. Add `authority` to `accessed_addresses` (as defined in [EIP-2929](./eip-2929.md).)
@@ -223,18 +234,26 @@ pub fn apply_eip7702_auth_list<
         if let Some(bytecode) = &authority_acc.info.code {
             // if it is not empty and it is not eip7702
             if !bytecode.is_empty() && !bytecode.is_eip7702() {
+                eprintln!("EIP-7702: Authority has non-empty non-EIP7702 code, skipping auth #{}", processed_auths);
                 continue;
             }
         }
 
         // 6. Verify the nonce of `authority` is equal to `nonce`. In case `authority` does not exist in the trie, verify that `nonce` is equal to `0`.
         if authorization.nonce() != authority_acc.info.nonce {
+            eprintln!("EIP-7702: Nonce mismatch (expected {}, got {}), skipping auth #{}", 
+                     authorization.nonce(), authority_acc.info.nonce, processed_auths);
             continue;
         }
+
+        eprintln!("EIP-7702: Nonce check passed for auth #{}", processed_auths);
 
         // 7. Add `PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST` gas to the global refund counter if `authority` exists in the trie.
         if !(authority_acc.is_empty() && authority_acc.is_loaded_as_not_existing_not_touched()) {
             refunded_accounts += 1;
+            eprintln!("EIP-7702: Authority exists and non-empty, will refund for auth #{}", processed_auths);
+        } else {
+            eprintln!("EIP-7702: Authority is empty or new, no refund for auth #{}", processed_auths);
         }
 
         // 8. Set the code of `authority` to be `0xef0100 || address`. This is a delegation designation.
@@ -252,12 +271,23 @@ pub fn apply_eip7702_auth_list<
         authority_acc.info.code = Some(bytecode);
 
         // 9. Increase the nonce of `authority` by one.
+        let old_nonce = authority_acc.info.nonce;
         authority_acc.info.nonce = authority_acc.info.nonce.saturating_add(1);
         authority_acc.mark_touch();
+        
+        eprintln!("EIP-7702: Updated authority nonce from {} to {} for auth #{}", 
+                 old_nonce, authority_acc.info.nonce, processed_auths);
     }
 
     let refunded_gas =
         refunded_accounts * (eip7702::PER_EMPTY_ACCOUNT_COST - eip7702::PER_AUTH_BASE_COST);
+    
+    eprintln!("EIP-7702: Total processed authorizations: {}", processed_auths);
+    eprintln!("EIP-7702: Refunded accounts: {}", refunded_accounts);
+    eprintln!("EIP-7702: PER_EMPTY_ACCOUNT_COST = {}", eip7702::PER_EMPTY_ACCOUNT_COST);
+    eprintln!("EIP-7702: PER_AUTH_BASE_COST = {}", eip7702::PER_AUTH_BASE_COST);
+    eprintln!("EIP-7702: Refund per account = {} gas", eip7702::PER_EMPTY_ACCOUNT_COST - eip7702::PER_AUTH_BASE_COST);
+    eprintln!("EIP-7702: Total refund = {} gas", refunded_gas);
 
     Ok(refunded_gas)
 }

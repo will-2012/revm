@@ -389,14 +389,20 @@ pub fn calculate_initial_tx_gas(
     //     tokens_in_calldata += get_tokens_in_calldata(initcode.as_ref(), true);
     // }
 
-    gas.initial_gas += tokens_in_calldata * STANDARD_TOKEN_COST;
+    let calldata_cost = tokens_in_calldata * STANDARD_TOKEN_COST;
+    gas.initial_gas += calldata_cost;
+    eprintln!("Gas calc: calldata tokens = {}, cost = {} gas", tokens_in_calldata, calldata_cost);
 
     // Get number of access list account and storages.
-    gas.initial_gas += access_list_accounts * ACCESS_LIST_ADDRESS;
-    gas.initial_gas += access_list_storages * ACCESS_LIST_STORAGE_KEY;
+    let access_list_account_cost = access_list_accounts * ACCESS_LIST_ADDRESS;
+    let access_list_storage_cost = access_list_storages * ACCESS_LIST_STORAGE_KEY;
+    gas.initial_gas += access_list_account_cost;
+    gas.initial_gas += access_list_storage_cost;
+    eprintln!("Gas calc: access list accounts = {}, cost = {} gas", access_list_accounts, access_list_account_cost);
+    eprintln!("Gas calc: access list storages = {}, cost = {} gas", access_list_storages, access_list_storage_cost);
 
     // Base stipend
-    gas.initial_gas += if is_create {
+    let base_cost = if is_create {
         if spec_id.is_enabled_in(SpecId::HOMESTEAD) {
             // EIP-2: Homestead Hard-fork Changes
             53000
@@ -406,21 +412,31 @@ pub fn calculate_initial_tx_gas(
     } else {
         21000
     };
+    gas.initial_gas += base_cost;
+    eprintln!("Gas calc: base cost = {} gas (is_create = {})", base_cost, is_create);
 
     // EIP-3860: Limit and meter initcode
     // Init code stipend for bytecode analysis
     if spec_id.is_enabled_in(SpecId::SHANGHAI) && is_create {
-        gas.initial_gas += initcode_cost(input.len())
+        let initcode_cost = initcode_cost(input.len());
+        gas.initial_gas += initcode_cost;
+        eprintln!("Gas calc: initcode cost = {} gas", initcode_cost);
     }
 
     // EIP-7702
     if spec_id.is_enabled_in(SpecId::PRAGUE) {
-        gas.initial_gas += authorization_list_num * eip7702::PER_EMPTY_ACCOUNT_COST;
+        eprintln!("EIP-7702: authorization_list_num = {}", authorization_list_num);
+        eprintln!("EIP-7702: PER_EMPTY_ACCOUNT_COST = {}", eip7702::PER_EMPTY_ACCOUNT_COST);
+        let auth_cost = authorization_list_num * eip7702::PER_EMPTY_ACCOUNT_COST;
+        eprintln!("EIP-7702: authorization cost = {} gas", auth_cost);
+        gas.initial_gas += auth_cost;
 
         // Calculate gas floor for EIP-7623
         gas.floor_gas = calc_tx_floor_cost(tokens_in_calldata);
+        eprintln!("EIP-7702: floor gas = {} gas", gas.floor_gas);
     }
 
+    eprintln!("Gas calc: total initial gas = {} gas", gas.initial_gas);
     gas
 }
 
