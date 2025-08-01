@@ -3,7 +3,7 @@ use crate::{num_words, tri, SStoreResult, SelfDestructResult, StateLoad};
 use context_interface::{
     journaled_state::AccountLoad, transaction::AccessListItemTr as _, Transaction, TransactionType,
 };
-use primitives::{eip7702, hardfork::SpecId, U256};
+use primitives::{eip7702, hardfork::SpecId, Address, U256};
 
 /// `SSTORE` opcode refund calculation.
 #[allow(clippy::collapsible_else_if)]
@@ -274,25 +274,64 @@ pub const fn selfdestruct_cost(spec_id: SpecId, res: StateLoad<SelfDestructResul
 /// [`bytecode::opcode::CALLCODE`] need to have this field hardcoded to false
 /// as they were present before SPURIOUS_DRAGON hardfork.
 #[inline]
-pub const fn call_cost(
+pub fn call_cost(
     spec_id: SpecId,
     transfers_value: bool,
     account_load: StateLoad<AccountLoad>,
+    address: Address,
 ) -> u64 {
+    // Print debug information using println! instead of tracing
+    println!(
+        "call_cost parameters: spec_id={:?}, transfers_value={}, address={:?}, account_load.is_cold={}, account_load.data.is_empty={}, account_load.data.is_delegate_account_cold={:?}",
+        spec_id,
+        transfers_value,
+        address,
+        account_load.is_cold,
+        account_load.data.is_empty,
+        account_load.data.is_delegate_account_cold
+    );
+
     let is_empty = account_load.data.is_empty;
-    // Account access.
+    
+    // Account access gas calculation
     let mut gas = if spec_id.is_enabled_in(SpecId::BERLIN) {
-        warm_cold_cost_with_delegation(account_load)
+        let is_cold = account_load.is_cold;
+        let delegate_cold = account_load.data.is_delegate_account_cold;
+        let berlin_gas = warm_cold_cost_with_delegation(account_load);
+        println!(
+            "call_cost gas change: address={:?}, BERLIN account access gas={} (cold={}, delegate_cold={:?})",
+            address,
+            berlin_gas,
+            is_cold,
+            delegate_cold
+        );
+        berlin_gas
     } else if spec_id.is_enabled_in(SpecId::TANGERINE) {
         // EIP-150: Gas cost changes for IO-heavy operations
+        println!(
+            "call_cost gas change: address={:?}, TANGERINE account access gas=700",
+            address
+        );
         700
     } else {
+        println!(
+            "call_cost gas change: address={:?}, FRONTIER account access gas=40",
+            address
+        );
         40
     };
 
     // Transfer value cost
     if transfers_value {
+        let old_gas = gas;
         gas += CALLVALUE;
+        println!(
+            "call_cost gas change: address={:?}, transfer value gas added={}, gas: {} -> {}",
+            address,
+            CALLVALUE,
+            old_gas,
+            gas
+        );
     }
 
     // New account cost
@@ -301,12 +340,46 @@ pub const fn call_cost(
         if spec_id.is_enabled_in(SpecId::SPURIOUS_DRAGON) {
             // Account only if there is value transferred.
             if transfers_value {
+                let old_gas = gas;
                 gas += NEWACCOUNT;
+                println!(
+                    "call_cost gas change: address={:?}, SPURIOUS_DRAGON new account gas added={} (empty account with value transfer), gas: {} -> {}",
+                    address,
+                    NEWACCOUNT,
+                    old_gas,
+                    gas
+                );
+            } else {
+                println!(
+                    "call_cost gas change: address={:?}, SPURIOUS_DRAGON new account gas skipped (empty account but no value transfer)",
+                    address
+                );
             }
         } else {
+            let old_gas = gas;
             gas += NEWACCOUNT;
+            println!(
+                "call_cost gas change: address={:?}, pre-SPURIOUS_DRAGON new account gas added={}, gas: {} -> {}",
+                address,
+                NEWACCOUNT,
+                old_gas,
+                gas
+            );
         }
+    } else {
+        println!(
+            "call_cost gas change: address={:?}, new account gas skipped (account not empty)",
+            address
+        );
     }
+
+    println!(
+        "call_cost result: address={:?}, final_gas={}, is_empty={}, transfers_value={}",
+        address,
+        gas,
+        is_empty,
+        transfers_value
+    );
 
     gas
 }

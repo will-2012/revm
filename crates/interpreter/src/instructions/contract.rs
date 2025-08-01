@@ -136,6 +136,7 @@ pub fn call<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContex
         account_load,
         has_transfer,
         local_gas_limit,
+        to,
     ) else {
         return;
     };
@@ -193,7 +194,7 @@ pub fn call_code<WIRE: InterpreterTypes, H: Host + ?Sized>(
     // Set `is_empty` to false as we are not creating this account.
     load.is_empty = false;
     let Some(mut gas_limit) =
-        calc_call_gas(context.interpreter, load, !value.is_zero(), local_gas_limit)
+        calc_call_gas(context.interpreter, load, !value.is_zero(), local_gas_limit, to)
     else {
         return;
     };
@@ -250,7 +251,7 @@ pub fn delegate_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     // Set is_empty to false as we are not creating this account.
     load.is_empty = false;
-    let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit) else {
+    let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit, to) else {
         return;
     };
 
@@ -298,9 +299,10 @@ pub fn static_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
             .halt(InstructionResult::FatalExternalError);
         return;
     };
-    // Set `is_empty` to false as we are not creating this account.
+
+    // Set is_empty to false as we are not creating this account.
     load.is_empty = false;
-    let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit) else {
+    let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit, to) else {
         return;
     };
     gas!(context.interpreter, gas_limit);

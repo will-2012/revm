@@ -5,7 +5,7 @@ use crate::{
 };
 use context_interface::{context::StateLoad, journaled_state::AccountLoad};
 use core::{cmp::min, ops::Range};
-use primitives::{hardfork::SpecId::*, U256};
+use primitives::{hardfork::SpecId::*, Address, U256};
 
 /// Gets memory input and output ranges for call instructions.
 #[inline]
@@ -51,11 +51,13 @@ pub fn calc_call_gas(
     account_load: StateLoad<AccountLoad>,
     has_transfer: bool,
     local_gas_limit: u64,
+    address: Address,
 ) -> Option<u64> {
     let call_cost = gas::call_cost(
         interpreter.runtime_flag.spec_id(),
         has_transfer,
         account_load,
+        address,
     );
     gas!(interpreter, call_cost, None);
 
