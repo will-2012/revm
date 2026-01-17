@@ -20,11 +20,21 @@ pub fn eip7623_check_gas_floor(gas: &mut Gas, init_and_floor_gas: InitialAndFloo
 
 /// Calculates and applies gas refunds based on the specification.
 pub fn refund(spec: SpecId, gas: &mut Gas, eip7702_refund: i64) {
+    eprintln!("EIP-7702: Applying refund of {} gas", eip7702_refund);
+    eprintln!("EIP-7702: Gas before refund - spent: {}, refunded: {}", gas.spent(), gas.refunded());
+    
     gas.record_refund(eip7702_refund);
+    
+    eprintln!("EIP-7702: Gas after refund - spent: {}, refunded: {}", gas.spent(), gas.refunded());
+    
     // Calculate gas refund for transaction.
     // If spec is set to london, it will decrease the maximum refund amount to 5th part of
     // gas spend. (Before london it was 2th part of gas spend)
+    let old_refund = gas.refunded();
     gas.set_final_refund(spec.is_enabled_in(SpecId::LONDON));
+    
+    eprintln!("EIP-7702: Final gas refund - spent: {}, refunded: {}", gas.spent(), gas.refunded());
+    eprintln!("EIP-7702: Refund change: {} -> {}", old_refund, gas.refunded());
 }
 
 /// Reimburses the caller for unused gas.

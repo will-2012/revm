@@ -145,10 +145,25 @@ pub trait Handler {
         evm: &mut Self::Evm,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         let init_and_floor_gas = self.validate(evm)?;
+        
+        // Log initial gas calculation
+        eprintln!("=== EIP-7702 Gas Calculation ===");
+        eprintln!("Initial gas: {}", init_and_floor_gas.initial_gas);
+        eprintln!("Floor gas: {}", init_and_floor_gas.floor_gas);
+        
         let eip7702_refund = self.pre_execution(evm)? as i64;
+        
+        // Log EIP-7702 refund
+        eprintln!("EIP-7702 refund: {} gas", eip7702_refund);
+        
         let mut exec_result = self.execution(evm, &init_and_floor_gas)?;
         self.post_execution(evm, &mut exec_result, init_and_floor_gas, eip7702_refund)?;
 
+        // Log final gas usage
+        eprintln!("Final gas used: {} gas", exec_result.gas().used());
+        eprintln!("Final gas refunded: {} gas", exec_result.gas().refunded());
+        eprintln!("=== End Gas Calculation ===");
+        
         // Prepare the output
         self.execution_result(evm, exec_result)
     }
