@@ -147,6 +147,16 @@ pub trait Handler {
         let init_and_floor_gas = self.validate(evm)?;
         let eip7702_refund = self.pre_execution(evm)? as i64;
         let mut exec_result = self.execution(evm, &init_and_floor_gas)?;
+        let ctx = evm.ctx();
+        let tx = ctx.tx();
+        eprintln!(
+            "tx_context: caller={:?}, gas_limit={}, value={:?}, data_len={}, exec_result: {:?}", 
+            tx.caller(), 
+            tx.gas_limit(), 
+            tx.value(), 
+            tx.input().len(),
+            exec_result
+        );
         self.post_execution(evm, &mut exec_result, init_and_floor_gas, eip7702_refund)?;
 
         // Prepare the output
